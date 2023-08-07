@@ -16,3 +16,6 @@
 !/local
 !/test/config/integration/certs
 !/windows
+
+# DataDog specific
+!/.datadog/ci/docker

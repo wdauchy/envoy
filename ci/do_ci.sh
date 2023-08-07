@@ -204,7 +204,6 @@ function bazel_envoy_api_build() {
 }
 
 function bazel_envoy_api_go_build() {
-    setup_clang_toolchain
     GO_IMPORT_BASE="github.com/envoyproxy/go-control-plane"
     GO_TARGETS=(@envoy_api//...)
     read -r -a GO_PROTOS <<< "$(bazel query "${BAZEL_GLOBAL_OPTIONS[@]}" "kind('go_proto_library', ${GO_TARGETS[*]})" | tr '\n' ' ')"
@@ -229,10 +228,10 @@ function bazel_envoy_api_go_build() {
             exit 1
         fi
         # echo "Copying go files ${INPUT_DIR} -> ${OUTPUT_DIR}"
-        while read -r GO_FILE; do
-            cp -a "$GO_FILE" "$OUTPUT_DIR"
-            if [[ "$GO_FILE" = *.validate.go ]]; then
-                sed -i '1s;^;//go:build !disable_pgv\n;' "$OUTPUT_DIR/$(basename "$GO_FILE")"
+        find "$INPUT_DIR" -name "*.go" -exec cp -a {} "$OUTPUT_DIR" \;
+        for GO_FILE in "$OUTPUT_DIR"/*.validate.go; do
+            if [[ -f "$GO_FILE" ]]; then
+                sed -i '' '1s;^;//go:build !disable_pgv\n;' "$GO_FILE"
             fi
         done <<< "$(find "$INPUT_DIR" -name "*.go")"
     done
