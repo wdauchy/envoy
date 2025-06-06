@@ -220,6 +220,7 @@ proto_library(
         "//envoy/extensions/filters/http/original_src/v3:pkg",
         "//envoy/extensions/filters/http/proto_api_scrubber/v3:pkg",
         "//envoy/extensions/filters/http/proto_message_extraction/v3:pkg",
+        "//envoy/extensions/filters/http/proxy_protocol_tlv_processor/v3:pkg",
         "//envoy/extensions/filters/http/rate_limit_quota/v3:pkg",
         "//envoy/extensions/filters/http/ratelimit/v3:pkg",
         "//envoy/extensions/filters/http/rbac/v3:pkg",

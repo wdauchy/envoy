@@ -462,6 +462,7 @@ proto_library(
         "//envoy/data/core/v2alpha:pkg",
         "//envoy/data/dns/v2alpha:pkg",
         "//envoy/data/tap/v2alpha:pkg",
+        "//envoy/extensions/filters/http/proxy_protocol_tlv_processor/v3:pkg",
         "//envoy/service/accesslog/v2:pkg",
         "//envoy/service/auth/v2:pkg",
         "//envoy/service/discovery/v2:pkg",

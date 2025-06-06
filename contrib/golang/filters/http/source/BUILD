@@ -1,4 +1,9 @@
 load(
+    "@envoy_build_config//:extensions_build_config.bzl",
+    "CONTRIB_EXTENSION_PACKAGE_VISIBILITY",
+    "EXTENSION_CONFIG_VISIBILITY",
+)
+load(
     "//bazel:envoy_build_system.bzl",
     "envoy_cc_contrib_extension",
     "envoy_cc_library",
@@ -61,6 +66,7 @@ envoy_cc_contrib_extension(
     name = "config",
     srcs = ["config.cc"],
     hdrs = ["config.h"],
+    visibility = CONTRIB_EXTENSION_PACKAGE_VISIBILITY + EXTENSION_CONFIG_VISIBILITY,
     deps = [
         ":golang_filter_lib",
         "//contrib/golang/common/dso:dso_lib",
