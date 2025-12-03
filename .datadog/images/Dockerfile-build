@@ -1,8 +1,7 @@
-ARG BASE_IMAGE="registry.ddbuild.io/images/base/gbi-ubuntu_2404:release"
 # We use a builder to decompress the tarballs built by envoy
 # This greatly reduces the context size to be passed to docker and avoids requiring zstd on the machine
-FROM ${BASE_IMAGE} AS builder
 ARG BASE_IMAGE="registry.ddbuild.io/images/base/gbi-ubuntu_2404:release"
+FROM ${BASE_IMAGE} AS builder
 ARG TARGETARCH
 ARG COMPILE_MODE="opt"
 

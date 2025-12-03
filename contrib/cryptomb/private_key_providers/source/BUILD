@@ -1,3 +1,4 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load(
     "//bazel:envoy_build_system.bzl",
     "envoy_cc_contrib_extension",
@@ -20,13 +21,25 @@ envoy_cmake(
         "//bazel/foreign_cc:parallel_builds_enabled": ["-j"],
         "//conditions:default": ["-j1"],
     }),
-    cache_entries = {
-        "BORINGSSL": "on",
-        "DYNAMIC_LIB": "off",
-        "MB_STANDALONE": "on",
-        "Python_EXECUTABLE": "$$EXT_BUILD_ROOT/$(PYTHON3)",
-        "OPENSSL_CRYPTO_LIBRARY": "$$EXT_BUILD_DEPS/lib/libcrypto_internal.a",
-    },
+    cache_entries = selects.with_or({
+        # FIPS builds (both not_ppc and ppc) use libcrypto.a/libssl.a
+        (
+            "//bazel:boringssl_fips_not_ppc",
+            "//bazel:boringssl_fips_ppc",
+        ): {
+            "BORINGSSL": "on",
+            "DYNAMIC_LIB": "off",
+            "MB_STANDALONE": "on",
+            "OPENSSL_CRYPTO_LIBRARY": "$$EXT_BUILD_DEPS/lib/libcrypto.a",
+        },
+        # Non-FIPS builds use libcrypto_internal.a/libssl_internal.a
+        "//conditions:default": {
+            "BORINGSSL": "on",
+            "DYNAMIC_LIB": "off",
+            "MB_STANDALONE": "on",
+            "OPENSSL_CRYPTO_LIBRARY": "$$EXT_BUILD_DEPS/lib/libcrypto_internal.a",
+        },
+    }),
     defines = [
         "OPENSSL_USE_STATIC_LIBS=TRUE",
     ],

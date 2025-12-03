@@ -6,7 +6,7 @@ stages:
 
 variables:
   GIT_BASE_BRANCH: dd-main
-  CI_IMAGE: registry.ddbuild.io/envoy-private/builder:v0.0.1-alpha.v-a2d27c48
+  CI_IMAGE: registry.ddbuild.io/envoy-private/builder:v0.0.1-alpha.v-f94b93e3
   CAMPAIGNER_IMAGE: registry.ddbuild.io/envoy-private/campaigner:v1.33.0-dd4-alpha.v-c11a189a
   SLACK_NOTIFIER_IMAGE: 486234852809.dkr.ecr.us-east-1.amazonaws.com/slack-notifier:sdm
   FF_USE_FASTZIP: 1
@@ -142,7 +142,6 @@ envoy-test:
       else
         TEST_TARGETS="//test/... //contrib/... @com_github_google_quiche//:ci_tests"
       fi
-    - bazel/setup_clang.sh /opt/llvm
     - bazel test --local_resources=cpu=$KUBERNETES_CPU_REQUEST --local_resources=memory=93000
       $DEFAULT_BAZEL_FLAGS
       --stripopt=--strip-all --compilation_mode=$COMPILEMODE $TEST_TARGETS
@@ -191,7 +190,6 @@ envoy-build:
         git checkout $TAG
         echo "fetch out $TAG to build"
       fi
-    - bazel/setup_clang.sh /opt/llvm
     - >
       if [ $COMPILEMODE == "fips" ]; then
         FIPS_OPTION="--define boringssl=fips"

@@ -967,7 +967,7 @@ cc_library(
 
 bool_flag(
     name = "enable_liburing",
-    build_setting_default = True,
+    build_setting_default = False,
 )
 
 config_setting(

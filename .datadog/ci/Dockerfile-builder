@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
        curl \
        libssl-dev \
        libtool \
+       linux-headers-generic \
+       linux-libc-dev \
        patch \
        python3-pip \
        unzip \
