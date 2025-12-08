@@ -128,9 +128,8 @@ def envoy_cmake(
         generate_args = ["-GNinja"],
         targets = ["", "install"],
         **kwargs):
-    # Handle cache_entries: if it's a dict, merge defaults and wrap for debug builds.
-    # If it's a select(), pass it through (caller must include defaults in each branch).
-    # Check if cache_entries is a dict by checking if it has the 'update' method.
+    # If cache_entries is a dict, merge defaults and wrap for debug builds.
+    # If it's a select(), pass it through directly.
     if hasattr(cache_entries, "update"):
         cache_entries.update(default_cache_entries)
         cache_entries_debug = dict(cache_entries)
@@ -140,8 +139,6 @@ def envoy_cmake(
             "//conditions:default": cache_entries,
         })
     else:
-        # cache_entries is a select(), pass it through directly
-        # Note: default_cache_entries must be included in each branch of the select
         final_cache_entries = cache_entries
 
     pf = ""
