@@ -4944,6 +4944,83 @@ virtual_hosts:
   }
 }
 
+TEST_F(RouteMatcherTest, RequestMirrorPoliciesRetryPolicyAndTimeout) {
+  const std::string yaml = R"EOF(
+virtual_hosts:
+- name: www2
+  domains:
+  - www.lyft.com
+  retry_policy:
+    retry_on: connect-failure
+    num_retries: 7
+  routes:
+  - match:
+      prefix: "/foo"
+    route:
+      request_mirror_policies:
+        - cluster: some_cluster
+          retry_policy:
+            retry_on: 5xx,reset
+            num_retries: 3
+            per_try_timeout: 0.2s
+          timeout: 2s
+        - cluster: some_cluster
+          timeout: 0s
+        - cluster: some_cluster
+      cluster: www2
+  )EOF";
+
+  factory_context_.cluster_manager_.initializeClusters({"www2", "some_cluster"}, {});
+  TestConfigImpl config(parseRouteConfigurationFromYaml(yaml), factory_context_, true,
+                        creation_status_);
+  ASSERT_TRUE(creation_status_.ok());
+  const auto& shadow_policies =
+      config.route(genHeaders("www.lyft.com", "/foo", "GET"), 0)->routeEntry()->shadowPolicies();
+  ASSERT_EQ(3, shadow_policies.size());
+
+  const RetryPolicyConstSharedPtr& retry_policy = shadow_policies[0]->retryPolicy();
+  ASSERT_NE(nullptr, retry_policy);
+  EXPECT_EQ(3U, retry_policy->numRetries());
+  EXPECT_EQ(RetryPolicy::RETRY_ON_5XX | RetryPolicy::RETRY_ON_RESET, retry_policy->retryOn());
+  EXPECT_EQ(std::chrono::milliseconds(200), retry_policy->perTryTimeout());
+  EXPECT_EQ(std::chrono::milliseconds(2000), shadow_policies[0]->timeout());
+
+  // The virtual host retry policy does not apply to mirrors.
+  EXPECT_EQ(nullptr, shadow_policies[1]->retryPolicy());
+  EXPECT_EQ(std::chrono::milliseconds(0), shadow_policies[1]->timeout());
+
+  EXPECT_EQ(nullptr, shadow_policies[2]->retryPolicy());
+  EXPECT_EQ(std::nullopt, shadow_policies[2]->timeout());
+}
+
+TEST_F(RouteMatcherTest, RequestMirrorPoliciesInvalidRetryPolicy) {
+  const std::string yaml = R"EOF(
+virtual_hosts:
+- name: www2
+  domains:
+  - www.lyft.com
+  routes:
+  - match:
+      prefix: "/foo"
+    route:
+      request_mirror_policies:
+        - cluster: some_cluster
+          retry_policy:
+            retry_on: 5xx
+            retry_back_off:
+              base_interval: 1s
+              max_interval: 0.5s
+      cluster: www2
+  )EOF";
+
+  factory_context_.cluster_manager_.initializeClusters({"www2", "some_cluster"}, {});
+  TestConfigImpl config(parseRouteConfigurationFromYaml(yaml), factory_context_, true,
+                        creation_status_);
+  EXPECT_FALSE(creation_status_.ok());
+  EXPECT_TRUE(absl::StrContains(creation_status_.message(),
+                                "max_interval must greater than or equal to the base_interval"));
+}
+
 // Test for request mirror policies with headers - verifies header mutations are applied correctly.
 TEST_F(RouteMatcherTest, RequestMirrorPoliciesWithHeaders) {
   const std::string yaml = R"EOF(

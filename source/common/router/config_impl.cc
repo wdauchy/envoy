@@ -415,6 +415,17 @@ ShadowPolicyImpl::ShadowPolicyImpl(const RequestMirrorPolicy& config,
     // Share ownership with the holder so that the scope outlives in-flight mirror requests.
     stats_ = ShadowPolicyStatsSharedPtr(holder, &holder->stats_);
   }
+
+  if (config.has_retry_policy()) {
+    auto policy_or_error = RetryPolicyImpl::create(
+        config.retry_policy(), factory_context.messageValidationVisitor(), factory_context);
+    SET_AND_RETURN_IF_NOT_OK(policy_or_error.status(), creation_status);
+    retry_policy_ = std::move(policy_or_error.value());
+  }
+
+  if (config.has_timeout()) {
+    timeout_ = std::chrono::milliseconds(PROTOBUF_GET_MS_REQUIRED(config, timeout));
+  }
 }
 
 ShadowPolicyImpl::ShadowPolicyStatsHolder::ShadowPolicyStatsHolder(Stats::ScopeSharedPtr scope)

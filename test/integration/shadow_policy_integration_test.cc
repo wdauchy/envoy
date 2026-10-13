@@ -281,6 +281,92 @@ TEST_P(ShadowPolicyIntegrationTest, MirrorPolicyStatsNoCluster) {
   EXPECT_EQ(0, test_server_->counter("mirror.test_mirror.rq_started")->value());
 }
 
+TEST_P(ShadowPolicyIntegrationTest, MirrorRetryPolicy) {
+  autonomous_upstream_ = false;
+  mirror_policy_modifier_ = [](envoy::config::route::v3::RouteAction::RequestMirrorPolicy& policy) {
+    policy.set_stat_prefix("test_mirror");
+    policy.mutable_retry_policy()->set_retry_on("5xx");
+    policy.mutable_retry_policy()->mutable_num_retries()->set_value(1);
+  };
+  initialConfigSetup("cluster_1", "");
+  initialize();
+
+  codec_client_ = makeHttpConnection(lookupPort("http"));
+  IntegrationStreamDecoderPtr response =
+      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
+
+  FakeHttpConnectionPtr fake_upstream_connection_main;
+  FakeStreamPtr upstream_request_main;
+  ASSERT_TRUE(
+      fake_upstreams_[0]->waitForHttpConnection(*dispatcher_, fake_upstream_connection_main));
+  ASSERT_TRUE(fake_upstream_connection_main->waitForNewStream(*dispatcher_, upstream_request_main));
+  ASSERT_TRUE(upstream_request_main->waitForEndStream(*dispatcher_));
+  upstream_request_main->encodeHeaders(default_response_headers_, true);
+  ASSERT_TRUE(response->waitForEndStream());
+  EXPECT_EQ("200", response->headers().getStatusValue());
+
+  FakeHttpConnectionPtr fake_upstream_connection_shadow;
+  FakeStreamPtr upstream_request_shadow;
+  ASSERT_TRUE(
+      fake_upstreams_[1]->waitForHttpConnection(*dispatcher_, fake_upstream_connection_shadow));
+  ASSERT_TRUE(
+      fake_upstream_connection_shadow->waitForNewStream(*dispatcher_, upstream_request_shadow));
+  ASSERT_TRUE(upstream_request_shadow->waitForEndStream(*dispatcher_));
+  upstream_request_shadow->encodeHeaders(Http::TestResponseHeaderMapImpl{{":status", "503"}}, true);
+
+  FakeStreamPtr upstream_request_shadow_retry;
+  ASSERT_TRUE(fake_upstream_connection_shadow->waitForNewStream(*dispatcher_,
+                                                                upstream_request_shadow_retry));
+  ASSERT_TRUE(upstream_request_shadow_retry->waitForEndStream(*dispatcher_));
+  upstream_request_shadow_retry->encodeHeaders(default_response_headers_, true);
+
+  test_server_->waitForCounter("mirror.test_mirror.rq_success", Eq(1));
+  EXPECT_EQ(0, test_server_->counter("mirror.test_mirror.rq_failure")->value());
+  EXPECT_EQ(1, test_server_->counter("cluster.cluster_1.upstream_rq_retry")->value());
+  EXPECT_EQ(0, test_server_->counter("cluster.cluster_0.upstream_rq_retry")->value());
+
+  cleanupUpstreamAndDownstream();
+}
+
+TEST_P(ShadowPolicyIntegrationTest, MirrorTimeout) {
+  autonomous_upstream_ = false;
+  mirror_policy_modifier_ = [](envoy::config::route::v3::RouteAction::RequestMirrorPolicy& policy) {
+    policy.set_stat_prefix("test_mirror");
+    policy.mutable_timeout()->set_nanos(200 * 1000 * 1000);
+  };
+  initialConfigSetup("cluster_1", "");
+  initialize();
+
+  codec_client_ = makeHttpConnection(lookupPort("http"));
+  IntegrationStreamDecoderPtr response =
+      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
+
+  FakeHttpConnectionPtr fake_upstream_connection_shadow;
+  FakeStreamPtr upstream_request_shadow;
+  ASSERT_TRUE(
+      fake_upstreams_[1]->waitForHttpConnection(*dispatcher_, fake_upstream_connection_shadow));
+  ASSERT_TRUE(
+      fake_upstream_connection_shadow->waitForNewStream(*dispatcher_, upstream_request_shadow));
+  ASSERT_TRUE(upstream_request_shadow->waitForEndStream(*dispatcher_));
+
+  // The mirror times out on its own timeout while the primary request is still pending.
+  test_server_->waitForCounter("cluster.cluster_1.upstream_rq_timeout", Eq(1));
+  test_server_->waitForCounter("mirror.test_mirror.rq_failure", Eq(1));
+
+  FakeHttpConnectionPtr fake_upstream_connection_main;
+  FakeStreamPtr upstream_request_main;
+  ASSERT_TRUE(
+      fake_upstreams_[0]->waitForHttpConnection(*dispatcher_, fake_upstream_connection_main));
+  ASSERT_TRUE(fake_upstream_connection_main->waitForNewStream(*dispatcher_, upstream_request_main));
+  ASSERT_TRUE(upstream_request_main->waitForEndStream(*dispatcher_));
+  upstream_request_main->encodeHeaders(default_response_headers_, true);
+  ASSERT_TRUE(response->waitForEndStream());
+  EXPECT_EQ("200", response->headers().getStatusValue());
+  EXPECT_EQ(0, test_server_->counter("cluster.cluster_0.upstream_rq_timeout")->value());
+
+  cleanupUpstreamAndDownstream();
+}
+
 TEST_P(ShadowPolicyIntegrationTest, BasicWithLimits) {
   initialConfigSetup("cluster_1", "");
   config_helper_.addConfigModifier([](envoy::config::bootstrap::v3::Bootstrap& bootstrap) {

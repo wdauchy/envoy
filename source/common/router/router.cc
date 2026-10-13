@@ -955,7 +955,7 @@ bool Filter::continueDecodeHeaders(Http::RequestHeaderMap& headers, bool end_str
     applyShadowPolicyHeaders(shadow_policy, *shadow_headers);
     auto options =
         Http::AsyncClient::RequestOptions()
-            .setTimeout(timeout_.global_timeout_)
+            .setTimeout(shadow_policy.timeout().value_or(timeout_.global_timeout_))
             .setParentSpan(callbacks_->activeSpan())
             .setChildSpanName("mirror")
             .setSampled(shadow_policy.traceSampled())
@@ -972,6 +972,9 @@ bool Filter::continueDecodeHeaders(Http::RequestHeaderMap& headers, bool end_str
             .setDiscardResponseBody(true)
             .setFilterConfig(config_)
             .setParentContext(Http::AsyncClient::ParentContext{&callbacks_->streamInfo()});
+    if (shadow_policy.retryPolicy() != nullptr) {
+      options.setRetryPolicy(shadow_policy.retryPolicy()).setBufferBodyForRetry(true);
+    }
 
     // The last policy can move the metadata since no later policy needs it.
     if (shadow_metadata.has_value()) {

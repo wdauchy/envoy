@@ -894,7 +894,7 @@ message RouteAction {
   // .. note::
   //
   //   Shadowing doesn't support HTTP CONNECT and upgrades.
-  // [#next-free-field: 10]
+  // [#next-free-field: 12]
   message RequestMirrorPolicy {
     option (udpa.annotations.versioning).previous_message_type =
         "envoy.api.v2.route.RouteAction.RequestMirrorPolicy";
@@ -970,6 +970,18 @@ message RouteAction {
     //
     // If empty, no per policy statistics are emitted.
     string stat_prefix = 9;
+
+    // Specifies the retry policy of the mirrored requests. If not set, mirrored requests are not
+    // retried. The route and virtual host retry policies never apply to mirrored requests.
+    //
+    // A mirrored request body is buffered for retries up to the route's request buffer limit;
+    // once the limit is exceeded the mirrored request is no longer retried. Retry statistics are
+    // emitted on the mirror cluster.
+    RetryPolicy retry_policy = 10;
+
+    // Specifies the timeout of the mirrored requests, including all retries. If not set, the
+    // timeout of the primary request is used. A value of 0 disables the timeout.
+    google.protobuf.Duration timeout = 11;
   }
 
   // Specifies the route's hashing policy if the upstream cluster uses a hashing :ref:`load balancer
